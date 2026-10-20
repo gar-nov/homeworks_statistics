@@ -1,1 +1,130 @@
-temporary
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Homework 3 | Elliptic-Curve Encryption and Caesar Cipher</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="wrap">
+<a class="backlink" href="../index.html">← Back to Statistics Homeworks</a>
+<header class="hero">
+<div class="tag">STATISTICS HOMEWORKS / HOMEWORK 03</div>
+<h1>Encryption, Decryption and Cryptanalysis</h1>
+<p>A comparison of a restricted-key elliptic-curve scheme and the Caesar cipher, with experiments on key recovery and letter statistics.</p>
+</header>
+
+<section class="card">
+<h2><span class="section-number">01</span>Background and encryption methods</h2>
+<p>Encryption transforms a readable message into ciphertext, while decryption recovers the original message using the appropriate key. This homework considers two very different approaches: a simplified elliptic-curve encryption scheme and the classical Caesar cipher. Both can be demonstrated with small inputs, but their mathematical operations and security assumptions are not the same.</p>
+<h3>Introducing the toy cryptographic scheme</h3>
+<p>This experiment uses a simplified elliptic-curve ElGamal scheme built on secp256k1. A deliberately small private-key range makes the key-generation, encryption, decryption and key-recovery procedures practical to explore. The construction is intended for educational demonstrations, not for protecting real messages.</p>
+<h3>Elliptic-curve encryption on secp256k1</h3>
+<p>The scheme starts with the relationship <strong>Q = kG</strong>, where <em>k</em> is a private scalar, <em>G</em> is a fixed generator and <em>Q</em> is the public point. Here the arithmetic is performed on the actual <strong>secp256k1 curve</strong>, but the private scalar is deliberately restricted to the range 1–128. The small range makes a search attack practical; it does not make secp256k1 itself a small curve.</p>
+<div class="formula">secp256k1: y² ≡ x³ + 7 (mod p) &nbsp; | &nbsp; Q = kG</div>
+<p>For this exercise, an elementary form of <strong>elliptic-curve ElGamal</strong> is used. Each UTF-8 message byte <em>b</em> is represented by the point <em>M = (b + 1)G</em>. For each byte, a new random temporary scalar <em>r</em> is selected and the ciphertext consists of two curve points. Decryption removes the shared point using the recipient's private scalar.</p>
+<div class="formula">Encryption: C₁ = rG &nbsp; · &nbsp; C₂ = M + rQ<br>Decryption: M = C₂ − kC₁</div>
+<p>The public key <em>Q</em> is used to encrypt; the private key <em>k</em> is required to decrypt. The temporary scalar <em>r</em> should be unpredictable and never reused in a secure design. Here it is also restricted to 1–128 to keep the experiment small. This is a custom teaching scheme, <strong>not Ethereum's standard transaction encryption mechanism</strong> and not a secure messaging protocol. Encoding bytes as small multiples of G is particularly inefficient and allows additional attacks.</p>
+<h3>Caesar cipher</h3>
+<p>The Caesar cipher shifts each letter by a fixed number of positions in the alphabet. With A = 0 through Z = 25, encryption adds the shift <em>s</em> modulo 26, and decryption subtracts it. Spaces and punctuation remain unchanged in this implementation, and lowercase letters remain lowercase.</p>
+<div class="formula">Encryption: c = (m + s) mod 26<br>Decryption: m = (c − s) mod 26</div>
+<p>The Caesar key is a single shift from 0 to 25. It is a <strong>symmetric cipher</strong>, because the same shift is needed for encryption and decryption. In contrast, elliptic-curve ElGamal uses a public/private key pair and point arithmetic.</p>
+</section>
+
+<section class="card">
+<h2><span class="section-number">02</span>Interactive encryption and decryption</h2>
+<p>Enter a short message and select the two keys. The same message is processed by both schemes. The elliptic-curve output is represented as pairs of points, not as readable text; only the first pair is displayed to keep the page manageable. The full ciphertext is retained in memory for the decryption experiment.</p>
+<div class="controls">
+<div class="field"><label for="message">Message (up to 60 UTF-8 bytes)</label><input id="message" type="text" value="STATISTICS AND CRYPTOGRAPHY" maxlength="60"></div>
+<div class="field compact"><label for="privateKey">ECC private key k (1–128)</label><input id="privateKey" type="number" min="1" max="128" value="37"></div>
+<div class="field compact"><label for="shift">Caesar shift (0–25)</label><input id="shift" type="number" min="0" max="25" value="7"></div>
+<button id="encryptBtn">Encrypt and decrypt</button>
+</div>
+<div class="result" id="operationStatus" aria-live="polite">Select “Encrypt and decrypt” to calculate both results.</div>
+<div class="split">
+<div class="statbox">
+<h3>Elliptic-curve ElGamal</h3>
+<div class="kv"><span>Public key Q = kG</span><code id="publicPoint">—</code></div>
+<div class="kv"><span>Encrypted bytes</span><strong id="byteCount">—</strong></div>
+<div class="kv"><span>First ciphertext pair (C₁, C₂)</span><code id="cipherPair">—</code></div>
+<div class="kv"><span>Recovered message</span><strong id="eccRecovered">—</strong></div>
+</div>
+<div class="statbox">
+<h3>Caesar cipher</h3>
+<div class="kv"><span>Ciphertext</span><code id="caesarCipher">—</code></div>
+<div class="kv"><span>Recovered message</span><strong id="caesarRecovered">—</strong></div>
+<div class="kv"><span>Key</span><strong id="caesarKey">—</strong></div>
+</div>
+</div>
+<p class="muted small">ECC calculations run locally in the browser using BigInt. A fresh temporary scalar is drawn for each byte with the browser's cryptographic random generator. Only a public example should be used; do not enter actual wallet secrets.</p>
+</section>
+
+<section class="card">
+<h2><span class="section-number">03</span>Statistical cryptanalysis of Caesar</h2>
+<p>English letters do not occur equally often. For example, E and T are relatively common, while Q and Z are rare. A Caesar shift moves the positions of these frequencies without changing their counts. This makes the key recoverable from sufficiently long English ciphertext by testing each possible shift and comparing the resulting letter frequencies with reference English frequencies.</p>
+<h3>Key recovery by chi-square scoring</h3>
+<p>The algorithm decrypts the ciphertext under all 26 possible shifts. For each candidate plaintext, it counts the letters A–Z and computes a chi-square discrepancy against standard English letter frequencies. The candidate with the <strong>smallest score</strong> is selected. This is statistical inference, not a guarantee: short messages and unusual vocabulary may produce misleading frequencies.</p>
+<div class="formula">χ²(s) = Σ [ (observedᵢ(s) − expectedᵢ)² / expectedᵢ ], &nbsp; expectedᵢ = N × pᵢ</div>
+<div class="controls">
+<div class="field"><label for="attackText">Paste your own Caesar ciphertext</label><textarea id="attackText" rows="3" placeholder="Paste Caesar-encrypted English text here."></textarea></div>
+<button id="useCaesarCipher" type="button">Use ciphertext from Section 02</button>
+<button id="recoverCaesar" type="button">Analyze ciphertext and recover key</button>
+</div>
+<p class="muted small">The attack does not need to know the original shift. Longer English ciphertext generally gives a more reliable estimate.</p>
+<div class="result" id="caesarAttackResult" aria-live="polite">Paste ciphertext and run the analysis to see the most likely shift and decrypted message.</div>
+<div class="split">
+<div><h3>Top candidate keys</h3><div class="scroll"><table><thead><tr><th>Rank</th><th>Shift</th><th>χ² score</th></tr></thead><tbody id="candidateRows"></tbody></table></div></div>
+<div><h3>Letter frequencies in candidate plaintext</h3><div class="bars" id="letterChart"></div><p class="muted small">Bars show observed percentages for A–Z after applying the best-scoring shift.</p></div>
+</div>
+<h3>Effect of ciphertext length</h3>
+<p>The experiment below takes progressively longer prefixes of an English reference passage, encrypts them using the selected Caesar shift, and attempts to recover the shift using the same chi-square method. It records whether the predicted key matches the true key. The result depends on this particular passage and is not an estimated success probability over all English texts.</p>
+<button id="lengthExperiment">Run length experiment</button>
+<div class="scroll"><table><thead><tr><th>Letters</th><th>Actual shift</th><th>Recovered shift</th><th>χ² score</th><th>Result</th></tr></thead><tbody id="lengthRows"></tbody></table></div>
+<p class="muted small">The reference passage is built into the page and contains ordinary English prose. Letter counts exclude spaces and punctuation.</p>
+</section>
+
+<section class="card">
+<h2><span class="section-number">04</span>Restricted-key attack on ECC</h2>
+<p>Knowing the public point Q = kG, an attacker can test the permitted private keys one by one: compute G, 2G, 3G, and so on, and stop when the result equals Q. Because this homework restricts k to 128 possibilities, the search is very small. Once the correct k is found, the attacker can decrypt the ciphertext pairs with the same formula used by the legitimate recipient.</p>
+<div class="formula">For k′ = 1, 2, …, 128: compute k′G; if k′G = Q, then k′ is the private key.</div>
+<button id="attackECC">Recover ECC private key</button>
+<div class="result" id="eccAttackResult" aria-live="polite">Encrypt a message first, then run the key-space attack.</div>
+<div class="scroll"><table><thead><tr><th>Attack property</th><th>Observation</th></tr></thead><tbody id="eccAttackRows"></tbody></table></div>
+<p>The attack exploits the <strong>restricted private-key space</strong>, not a defect in the secp256k1 curve. A properly generated secp256k1 private key is selected from a range of approximately 2²⁵⁶ values, so testing all keys is computationally infeasible. General elliptic-curve discrete-logarithm attacks, such as Pollard's rho, still require on the order of 2¹²⁸ group operations for the full-size curve, which is beyond practical reach.</p>
+<p>This example also has a separate design weakness: each message byte is mapped to one of only 256 known points. With the small temporary-scalar range, an attacker could enumerate r from C₁ = rG and remove rQ from C₂, even without recovering k. Secure encryption requires both a strong key space and an appropriate, reviewed encryption construction; a large curve alone is not enough.</p>
+</section>
+
+<section class="card">
+<h2><span class="section-number">05</span>Comparison and interpretation</h2>
+<div class="scroll"><table class="compare"><thead><tr><th>Property</th><th>Caesar cipher</th><th>Restricted-key ECC ElGamal</th></tr></thead><tbody>
+<tr><td>Key structure</td><td>One shared shift</td><td>Public point Q and private scalar k</td></tr>
+<tr><td>Key space in this experiment</td><td>26 shifts</td><td>128 private scalars; 128 possible temporary scalars per byte</td></tr>
+<tr><td>Encryption</td><td>Modular letter substitution</td><td>Point addition and scalar multiplication</td></tr>
+<tr><td>Decryption</td><td>Subtract the shift</td><td>Subtract kC₁ from C₂</td></tr>
+<tr><td>Statistical structure</td><td>Letter-frequency pattern is preserved but shifted</td><td>Point outputs depend on group arithmetic and random temporary scalars</td></tr>
+<tr><td>Demonstrated attack</td><td>Chi-square letter-frequency ranking</td><td>Exhaustive search over a restricted scalar range</td></tr>
+</tbody></table></div>
+<h3>What the experiments show</h3>
+<p>Caesar encryption preserves the relative frequencies of letters because every occurrence of the same plaintext letter is replaced by the same ciphertext letter. This gives the statistical attack a useful signal. With short samples, random fluctuations in the observed frequencies can overwhelm the reference distribution; with longer representative English samples, the correct shift is more likely to receive the lowest score.</p>
+<p>The ECC attack uses a different kind of information. It does not need language frequencies: it compares calculated public points against a known public key. Its success follows from the tiny search space. Even a very long message would not make a 128-value private key difficult to enumerate. Conversely, a sufficiently large and uniformly selected private key prevents this direct exhaustive search, although the surrounding encryption design must also be secure.</p>
+<p>Exhaustive search is also an alternative for Caesar because 26 shifts are easy to list and inspect. N-gram scoring, which evaluates common pairs or groups of letters, can improve recovery for some shorter texts, but its quality depends on the language model and sample. The chi-square method here is deliberately simple and reproducible.</p>
+<h3>Conclusion</h3>
+<p>These two schemes illustrate distinct sources of cryptographic weakness. Caesar's weakness is structural: substitution preserves a recognizable language distribution and its key space is tiny. The elliptic-curve example uses strong curve arithmetic but artificially weak key selection and a simplified message encoding. The experiments show why the security of a cryptographic system depends on the complete construction, not only on the name of the algorithm it uses.</p>
+</section>
+
+<section class="card">
+<h2><span class="section-number">06</span>References</h2>
+<p>Background and implementation details can be checked against the following specifications and references:</p>
+<ul>
+<li><a href="https://www.secg.org/sec2-v2.pdf" target="_blank" rel="noopener noreferrer">SEC 2 — Recommended Elliptic Curve Domain Parameters</a> (secp256k1 parameters).</li>
+<li><a href="https://csrc.nist.gov/pubs/sp/800/57/pt1/r5/final" target="_blank" rel="noopener noreferrer">NIST SP 800-57 Part 1</a> (key management and cryptographic strength).</li>
+<li><a href="https://en.wikipedia.org/wiki/ElGamal_encryption" target="_blank" rel="noopener noreferrer">ElGamal encryption</a> (public-key encryption construction and elliptic-curve variant).</li>
+<li><a href="https://en.wikipedia.org/wiki/Frequency_analysis" target="_blank" rel="noopener noreferrer">Frequency analysis</a> (classical substitution-cipher cryptanalysis).</li>
+</ul>
+<p class="muted small">All experiments execute locally in the browser. The elliptic-curve construction is intentionally simplified and must not be used to protect real messages.</p>
+</section>
+</main>
+<script src="script.js"></script>
+</body>
+</html>
