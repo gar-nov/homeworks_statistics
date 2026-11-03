@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Homework 5 | Welford and Sampling Statistics</title><link rel="stylesheet" href="style.css"></head>
+<body><main class="wrap">
+<a class="backlink" href="../index.html">← Back to Statistics Homeworks</a>
+<header class="hero"><div class="tag">STATISTICS HOMEWORKS / HOMEWORK 05</div><h1>Welford's Recurrence and Sampling Variability</h1><p>Online computation of sample statistics and an experimental study of penetration scores across independent attackers.</p></header>
+<section class="card"><h2><span class="section-number">01</span>Welford's recurrence formulas</h2>
+<p>Let <b>x₁, …, xₙ</b> be observations, <b>Mₙ</b> their mean, and <b>SSₙ = Σᵢ₌₁ⁿ(xᵢ − Mₙ)²</b> the sum of squared deviations. Start with M₀ = 0 and SS₀ = 0. Following Knuth's incremental mean update, set δₙ = xₙ − Mₙ₋₁:</p>
+<span class="formula">Mₙ = Mₙ₋₁ + δₙ / n</span>
+<p>For the first n − 1 observations, write xᵢ − Mₙ = (xᵢ − Mₙ₋₁) − δₙ/n. When we square and sum, the cross term vanishes because Σᵢ₌₁ⁿ⁻¹(xᵢ − Mₙ₋₁) = 0. These observations therefore contribute SSₙ₋₁ + (n−1)δₙ²/n². The new observation contributes (xₙ − Mₙ)² = (n−1)²δₙ²/n². Adding both parts yields:</p>
+<span class="formula">SSₙ = SSₙ₋₁ + (n − 1)δₙ² / n<br>     = SSₙ₋₁ + δₙ(xₙ − Mₙ)</span>
+<p>The unbiased sample variance uses the denominator n − 1:</p>
+<span class="formula">s²ₙ = SSₙ / (n − 1), for n ≥ 2</span>
+<p>Equivalently, s²ₙ = [(n − 2)s²ₙ₋₁ + (n − 1)δₙ²/n] / (n − 1) for n ≥ 3. The first variance is defined at n = 2.</p>
+<h3>Three-line core implementation</h3>
+<pre class="codebox"><code>const delta = x - mean;
+mean += delta / count;
+SS += delta * (x - mean);</code></pre>
+<p class="muted">Initialize mean = 0 and SS = 0; increment count before these three lines. After n observations, sample variance = SS / (n − 1). The recurrence avoids storing all observations.</p>
+</section>
+<section class="card"><h2><span class="section-number">02</span>Score distribution and theoretical values</h2>
+<p>Each of <b>m independent hackers</b> attempts to penetrate <b>n systems</b>. Each attempt receives an independent integer score X uniformly drawn from 0 through 10, with P(X = k) = 1/11 for every k ∈ {0, …, 10}. The score is a simplified statistical model, not a real-world security prediction.</p>
+<div class="grid2"><div class="note"><b>Theoretical mean</b><span class="formula">μ = E[X] = (0 + ··· + 10) / 11 = 5</span>All eleven scores have equal probability.</div><div class="note"><b>Theoretical variance</b><span class="formula">σ² = E[(X − 5)²] = 10</span>Equivalently E[X²] = 35, so σ² = 35 − 25 = 10.</div></div>
+<p>For each hacker, Welford's algorithm produces a sample mean and unbiased sample variance. Across all m hackers, we average those statistics and compare them with μ and σ².</p>
+</section>
+<section class="card"><h2><span class="section-number">03</span>Interactive hacker simulation</h2>
+<p class="muted">Change the number of hackers and systems, then generate a new independent experiment.</p>
+<div class="controls"><div class="field"><label for="hackers">Hackers (m)</label><select id="hackers"><option>20</option><option selected>200</option><option>1000</option><option>3000</option><option>5000</option></select></div><div class="field"><label for="systems">Systems per hacker (n)</label><select id="systems"><option>5</option><option>10</option><option>20</option><option selected>100</option><option>500</option><option>1000</option><option>2000</option></select></div></div>
+<div class="actions"><button id="run">↻ Run simulation</button><button id="compare" class="secondary">Compare increasing n</button></div>
+<div class="metric-grid"><div class="metric"><small>Average sample mean (theory: 5)</small><strong id="mean-result">—</strong></div><div class="metric"><small>Average sample variance (theory: 10)</small><strong id="variance-result">—</strong></div><div class="metric"><small>SD of sample means</small><strong id="sd-result">—</strong></div></div>
+<div id="status" class="note" aria-live="polite"></div>
+<div class="grid2"><div class="chartbox"><h3>Distribution of hacker sample means</h3><div id="histogram" class="histogram"></div><p class="legend">Number of hackers in each rounded sample-mean bin (0–10).</p></div><div class="chartbox"><h3>Individual hacker results</h3><div class="tablewrap"><table><thead><tr><th>Hacker</th><th>First scores</th><th>Sample mean</th><th>Sample variance</th></tr></thead><tbody id="trajectories"></tbody></table></div><p class="legend">First 12 hackers; at most 20 scores shown per hacker.</p></div></div>
+</section>
+<section class="card" id="comparison-section"><h2><span class="section-number">04</span>Comparison across sample sizes</h2>
+<p>Repeat the experiment with n = 2, 5, 10, 20, 50, 100, and 200, holding the number of hackers m fixed. Each row is a new simulation. The empirical standard deviations quantify the spread of individual hackers' sample means and sample variances.</p>
+<p id="comparison-status" class="note" aria-live="polite">Click “Compare increasing n” to run the comparison.</p>
+<div class="chartbox"><h3>Sampling variability as n increases</h3><div id="comparison-chart"></div></div>
+<div class="tablewrap"><table><thead><tr><th>n</th><th>Avg. mean</th><th>Avg. variance</th><th>SD(means)</th><th>SD(variances)</th><th>Theory SD(means)</th></tr></thead><tbody id="comparison"></tbody></table></div>
+<p class="muted">Theoretical SD of the sample mean = √(10/n). Results change slightly each time because the experiment uses random scores.</p>
+</section>
+<section class="card"><h2><span class="section-number">05</span>Statistical interpretation</h2>
+<p><b>Unbiased estimation:</b> For independent identically distributed scores, E[X̄] = μ = 5 and E[s²] = σ² = 10. Therefore the average of m sample means and the average of m unbiased sample variances should fluctuate around 5 and 10, respectively, rather than being exactly equal in any single experiment.</p>
+<p><b>Increasing n:</b> Var(X̄) = σ²/n = 10/n, so sample means become more concentrated around 5 as each hacker attempts more systems. Sample variances also become more stable as n increases, although their variability does not follow the same 10/n formula.</p>
+<p><b>Increasing m:</b> More independent hackers make the averages across hackers more reliable, but do not change the sampling variability of one hacker's statistics at fixed n.</p>
+<p><b>Inferential statistics:</b> Unbiasedness explains why these estimators target the population parameters; shrinking sampling variability explains why larger samples generally produce more precise estimates. These principles underpin standard errors, confidence intervals and hypothesis tests.</p>
+<div class="note"><b>Conclusion</b> Welford's recurrences provide numerically stable, memory-efficient sample statistics. Across many hackers the averages approach their theoretical targets, and increasing the number of systems reduces the spread of the individual estimates.</div>
+</section>
+</main><script src="script.js"></script></body></html>
